@@ -1,0 +1,47 @@
+import Link from "next/link";
+import { getServerUser } from "@/lib/auth/server";
+import { getFormsNav, type FormStatusBadge } from "@/lib/nav";
+
+const badgeStyles: Record<FormStatusBadge, string> = {
+  NOT_STARTED: "bg-gray-100 text-gray-600",
+  DRAFT: "bg-amber-100 text-amber-800",
+  SUBMITTED: "bg-green-100 text-green-800",
+  NEEDS_CHANGES: "bg-red-100 text-red-800",
+};
+
+const badgeLabels: Record<FormStatusBadge, string> = {
+  NOT_STARTED: "Not Started",
+  DRAFT: "Draft",
+  SUBMITTED: "Submitted",
+  NEEDS_CHANGES: "Needs Changes",
+};
+
+export default async function FormsListPage() {
+  const user = await getServerUser();
+  const forms = user ? await getFormsNav(user.id) : [];
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      <h1 className="text-2xl font-semibold text-blue-950">Forms</h1>
+      <p className="mt-1 text-sm text-gray-600">
+        Every admission and student-related form for your child(ren).
+      </p>
+
+      <ul className="mt-6 divide-y rounded-md border bg-white">
+        {forms.map((f) => (
+          <li key={f.id}>
+            <Link href={`/forms/${f.id}`} className="flex items-center justify-between p-4 hover:bg-gray-50">
+              <span className="font-medium text-gray-800">{f.name}</span>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStyles[f.badge]}`}>
+                {badgeLabels[f.badge]}
+              </span>
+            </Link>
+          </li>
+        ))}
+        {forms.length === 0 && (
+          <li className="p-4 text-sm text-gray-500">No forms have been published yet.</li>
+        )}
+      </ul>
+    </div>
+  );
+}

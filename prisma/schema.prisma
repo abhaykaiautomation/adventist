@@ -1,0 +1,282 @@
+// School Digital Forms Platform — Prisma schema
+// See ../school-forms-platform-spec (1).md Section 5 for the design rationale.
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  // TEMPORARILY DISABLED: pgvector isn't installed on the Hostinger Postgres
+  // server yet. Re-enable this once it is (see KnowledgeBaseDoc below) and
+  // re-run `prisma db push`.
+  // extensions = [vector]
+}
+
+// ---------------------------------------------------------------------------
+// Users, roles, and the admin-approval flow
+// ---------------------------------------------------------------------------
+
+enum Role {
+  PARENT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING
+  APPROVED
+  REVOKED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  firebaseUid  String   @unique
+  email        String   @unique
+  name         String?
+  role         Role     @default(PARENT)
+  status       UserStatus @default(ACTIVE) // for admins: PENDING/APPROVED/REVOKED
+  createdAt    DateTime @default(now())
+
+  children             Child[]
+  submissions          Submission[]
+  adminRequest         AdminRequest?
+  policyAcknowledgments PolicyAcknowledgment[]
+  fieldQuestionsAsked  FieldQuestion[]  @relation("FieldQuestionAskedBy")
+  activityLogs         ActivityLog[]
+  visitLogs            VisitLog[]
+  createdShareLinks    FormShareLink[]
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AdminRequest {
+  id          String        @id @default(uuid())
+  user        User          @relation(fields: [userId], references: [id])
+  userId      String        @unique
+  requestedAt DateTime      @default(now())
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  status      RequestStatus @default(PENDING)
+}
+
+// ---------------------------------------------------------------------------
+// Parents, children, and site-visit tracking
+// ---------------------------------------------------------------------------
+
+model Child {
+  id          String   @id @default(uuid())
+  parent      User     @relation(fields: [parentId], references: [id])
+  parentId    String
+  fullName    String
+  dateOfBirth DateTime
+
+  submissions Submission[]
+}
+
+model VisitLog {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  email      String   // denormalized for quick admin listing
+  signedInAt DateTime @default(now())
+  ipAddress  String?
+}
+
+// ---------------------------------------------------------------------------
+// Forms and policies (both drive the dynamic left nav)
+// ---------------------------------------------------------------------------
+
+model FormTemplate {
+  id         String   @id @default(uuid())
+  name       String   // e.g. "New Student Admission Form"
+  version    Int      @default(1)
+  schemaJson Json     // field defs derived from the scanned paper form
+  isActive   Boolean  @default(true)
+  sortOrder  Int      @default(0) // controls nav position, lower first
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  submissions Submission[]
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  NEEDS_CHANGES
+  AWAITING_EXTERNAL_SIGNER
+  APPROVED
+  REJECTED
+}
+
+model Submission {
+  id         String   @id @default(uuid())
+  template   FormTemplate @relation(fields: [templateId], references: [id])
+  templateId String
+  parent     User     @relation(fields: [parentId], references: [id])
+  parentId   String
+  child      Child?   @relation(fields: [childId], references: [id])
+  childId    String?
+  dataJson   Json     // filled-in field values
+  status     SubmissionStatus @default(DRAFT)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  signatures     Signature[]
+  activity       ActivityLog[]
+  fieldQuestions FieldQuestion[]
+  shareLinks     FormShareLink[]
+}
+
+enum SignerRole {
+  PARENT
+  PHYSICIAN
+  DENTIST
+}
+
+model Signature {
+  id           String     @id @default(uuid())
+  submission   Submission @relation(fields: [submissionId], references: [id])
+  submissionId String
+  signerRole   SignerRole @default(PARENT)
+  signerName   String
+  signerEmail  String?    // populated for non-parent signers reached via a FormShareLink
+  signatureImg String     // base64 or storage URL of drawn/typed signature
+  ipAddress    String
+  userAgent    String
+  signedAt     DateTime   @default(now())
+  consentText  String     // the exact "I agree..." text shown at signing time
+}
+
+model PolicyPage {
+  id                      String   @id @default(uuid())
+  title                   String   // e.g. "Safe Sleep & Medication Policy"
+  contentHtml             String   // rendered policy text
+  version                 Int      @default(1)
+  isActive                Boolean  @default(true)
+  requiresAcknowledgment  Boolean  @default(false) // e.g. Safe Sleep, Medication Policy — not reference-only pages
+  sortOrder               Int      @default(0) // controls nav position, lower first
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  acknowledgments PolicyAcknowledgment[]
+}
+
+model PolicyAcknowledgment {
+  id             String     @id @default(uuid())
+  policy         PolicyPage @relation(fields: [policyId], references: [id])
+  policyId       String
+  user           User       @relation(fields: [userId], references: [id])
+  userId         String
+  acknowledgedAt DateTime   @default(now())
+  ipAddress      String
+
+  @@unique([policyId, userId]) // one acknowledgment per parent per policy version
+}
+
+// ---------------------------------------------------------------------------
+// Per-field Q&A between parent and admin (submission gate)
+// ---------------------------------------------------------------------------
+
+enum QuestionStatus {
+  OPEN
+  ANSWERED
+  RESOLVED
+  WITHDRAWN
+}
+
+model FieldQuestion {
+  id           String     @id @default(uuid())
+  submission   Submission @relation(fields: [submissionId], references: [id])
+  submissionId String
+  fieldKey     String     // matches the field id in FormTemplate.schemaJson
+  question     String
+  askedBy      User       @relation("FieldQuestionAskedBy", fields: [askedById], references: [id])
+  askedById    String
+  answer       String?
+  answeredBy   String?    // admin user id
+  answeredAt   DateTime?
+  status       QuestionStatus @default(OPEN)
+  createdAt    DateTime   @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Activity log (admin "everything every parent did" timeline)
+// ---------------------------------------------------------------------------
+
+model ActivityLog {
+  id           String      @id @default(uuid())
+  submission   Submission? @relation(fields: [submissionId], references: [id])
+  submissionId String?
+  user         User?       @relation(fields: [userId], references: [id])
+  userId       String?
+  action       String      // e.g. "FORM_STARTED", "FIELD_SAVED", "SUBMITTED", "ADMIN_COMMENTED"
+  metaJson     Json?
+  createdAt    DateTime    @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Share-for-completion links (e.g. physician completes Health Appraisal)
+// ---------------------------------------------------------------------------
+
+enum ShareLinkStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  REVOKED
+}
+
+model FormShareLink {
+  id             String          @id @default(uuid())
+  submission     Submission      @relation(fields: [submissionId], references: [id])
+  submissionId   String
+  recipientEmail String
+  tokenHash      String          @unique // store a hash, never the raw token
+  status         ShareLinkStatus @default(ACTIVE)
+  createdBy      User            @relation(fields: [createdById], references: [id])
+  createdById    String
+  expiresAt      DateTime        // e.g. 14 days out
+  accessedAt     DateTime?
+  completedAt    DateTime?
+}
+
+// ---------------------------------------------------------------------------
+// Tuition rate lookup (room x schedule x days), so rates aren't hardcoded
+// into a form's schemaJson and can be updated without a deploy.
+// ---------------------------------------------------------------------------
+
+model RateCard {
+  id           String   @id @default(uuid())
+  schoolYear   String   // e.g. "2025-26"
+  room         String
+  scheduleType String
+  daysPerWeek  Int
+  monthlyRate  Decimal  @db.Decimal(10, 2)
+  isActive     Boolean  @default(true)
+
+  @@unique([schoolYear, room, scheduleType, daysPerWeek])
+}
+
+// ---------------------------------------------------------------------------
+// Chatbot knowledge base (RAG via pgvector)
+// ---------------------------------------------------------------------------
+
+// TEMPORARILY DISABLED: requires the `vector` extension (see datasource
+// block above), which isn't installed on the server yet. Uncomment both
+// once pgvector is installed, then `prisma db push` again.
+// model KnowledgeBaseDoc {
+//   id        String                       @id @default(uuid())
+//   title     String
+//   content   String
+//   // Dimension must match the embedding model in src/lib/rag/embed.ts (Voyage voyage-3 = 1024-dim).
+//   embedding Unsupported("vector(1024)")?
+//   updatedAt DateTime                     @updatedAt
+// }
