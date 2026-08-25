@@ -26,6 +26,12 @@ interface CartContextValue {
   setTuition: (submissionId: string, amountCents: number) => void;
   removeTuition: () => void;
   clear: () => void;
+  // Set by a page while a condition on it (e.g. "Pay in Person" selected on
+  // the tuition form) means checkout shouldn't proceed online right now —
+  // items can still be added/removed, only the Checkout button is blocked.
+  // Non-null means disabled, and the string is shown as the reason why.
+  disabledReason: string | null;
+  setDisabledReason: (reason: string | null) => void;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
@@ -116,9 +122,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clear = useCallback(() => setLines([]), []);
 
+  const [disabledReason, setDisabledReason] = useState<string | null>(null);
+
   const value = useMemo(
-    () => ({ lines, hasFeeItem, addFeeItem, removeFeeItem, hasTuition, setTuition, removeTuition, clear }),
-    [lines, hasFeeItem, addFeeItem, removeFeeItem, hasTuition, setTuition, removeTuition, clear]
+    () => ({
+      lines,
+      hasFeeItem,
+      addFeeItem,
+      removeFeeItem,
+      hasTuition,
+      setTuition,
+      removeTuition,
+      clear,
+      disabledReason,
+      setDisabledReason,
+    }),
+    [lines, hasFeeItem, addFeeItem, removeFeeItem, hasTuition, setTuition, removeTuition, clear, disabledReason]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

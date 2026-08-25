@@ -297,6 +297,19 @@ export function FormRenderer({
     0
   );
 
+  // "Pay in Person" means the parent intends to settle these in person, not
+  // online — items stay selectable (so the total is still visible) but the
+  // top-right cart's Checkout is blocked until they switch back. Re-enables
+  // on unmount so leaving this page never leaves the cart stuck disabled.
+  useEffect(() => {
+    if (!hasTuitionLookup) return;
+    cart.setDisabledReason(
+      isPayOnline ? null : 'Switch Payment Method to "Pay Online (autopay)" to check out online.'
+    );
+    return () => cart.setDisabledReason(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasTuitionLookup, isPayOnline]);
+
   /** Adds (or removes) the monthly tuition line in the shared cart — paid
    * together with whatever else is in it via the top-right cart widget,
    * not immediately. If the form is still editable, saves it first (even if

@@ -62,8 +62,11 @@ export function CartWidget() {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative flex items-center gap-1 text-[#f3ede2] hover:text-[#f6c667]"
+        className={`relative flex items-center gap-1 hover:text-[#f6c667] ${
+          cart.disabledReason ? "text-[#f3ede2]/40" : "text-[#f3ede2]"
+        }`}
         aria-label="Cart"
+        title={cart.disabledReason ?? undefined}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="h-5 w-5" aria-hidden="true">
           <path d="M3 3h2l.4 2M7 13h10l3-8H5.4M7 13L5.4 5M7 13l-2 5h13" strokeLinecap="round" strokeLinejoin="round" />
@@ -71,7 +74,11 @@ export function CartWidget() {
           <circle cx="18" cy="20" r="1.4" />
         </svg>
         {cart.lines.length > 0 && (
-          <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#f6c667] text-[10px] font-bold text-[#241a5e]">
+          <span
+            className={`absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
+              cart.disabledReason ? "bg-[#f3ede2]/40 text-[#241a5e]" : "bg-[#f6c667] text-[#241a5e]"
+            }`}
+          >
             {cart.lines.length}
           </span>
         )}
@@ -139,10 +146,13 @@ export function CartWidget() {
             )}
 
             {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+            {cart.disabledReason && (
+              <p className="mt-2 text-xs text-[#f6c667]">{cart.disabledReason}</p>
+            )}
 
             <button
               onClick={checkout}
-              disabled={busy || cart.lines.length === 0}
+              disabled={busy || cart.lines.length === 0 || !!cart.disabledReason}
               className="mt-3 w-full rounded-md bg-[#f6c667] px-3 py-2 text-sm font-medium text-[#241a5e] hover:bg-[#f6c667]/90 disabled:opacity-50"
             >
               {busy ? "Redirecting…" : "Checkout"}
