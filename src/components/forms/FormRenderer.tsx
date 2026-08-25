@@ -306,7 +306,10 @@ export function FormRenderer({
    * the draft route) — its dataJson is already final, so this skips
    * straight to using the existing submissionId instead of hitting that
    * route's 409. */
+  const [tuitionCartError, setTuitionCartError] = useState<string | null>(null);
+
   async function toggleTuitionInCart() {
+    setTuitionCartError(null);
     if (submissionId && cart.hasTuition(submissionId)) {
       cart.removeTuition();
       return;
@@ -317,7 +320,11 @@ export function FormRenderer({
     try {
       const amount = Number(getValues("monthly_tuition_amount" as never));
       if (!amount || amount <= 0) {
-        setBanner("Enter a monthly tuition amount above first.");
+        console.error("toggleTuitionInCart: no monthly_tuition_amount value", {
+          watchedTuitionAmount,
+          gotFromGetValues: getValues("monthly_tuition_amount" as never),
+        });
+        setTuitionCartError("Enter a monthly tuition amount above first.");
         return;
       }
 
@@ -330,7 +337,8 @@ export function FormRenderer({
         });
         const draftData = await draftRes.json().catch(() => ({}));
         if (!draftRes.ok) {
-          setBanner(draftData.error ?? `Couldn't save your form (HTTP ${draftRes.status}).`);
+          console.error("toggleTuitionInCart: draft save failed", draftRes.status, draftData);
+          setTuitionCartError(draftData.error ?? `Couldn't save your form (HTTP ${draftRes.status}).`);
           return;
         }
         idToUse = draftData.submissionId;
@@ -339,14 +347,14 @@ export function FormRenderer({
       }
 
       if (!idToUse) {
-        setBanner("Save this form first, then add tuition to your cart.");
+        setTuitionCartError("Save this form first, then add tuition to your cart.");
         return;
       }
 
       cart.setTuition(idToUse, Math.round(amount * 100));
     } catch (err) {
       console.error("toggleTuitionInCart failed", err);
-      setBanner("Something went wrong — check the browser console for details.");
+      setTuitionCartError("Something went wrong — check the browser console for details.");
     } finally {
       setAddingTuitionToCart(false);
     }
@@ -527,6 +535,8 @@ export function FormRenderer({
               <p className="text-xs text-[#f3ede2]/60">
                 Late arrival charge (past 6pm), paid immediately to the caregiver on duty: $1.00/minute
               </p>
+
+              {tuitionCartError && <p className="text-xs text-red-400">{tuitionCartError}</p>}
 
               {!isPayOnline && (checkedOneTimeCents > 0 || tuitionInCart) && (
                 <div className="space-y-1 border-t border-[#f3ede2]/10 pt-2 text-sm text-[#f3ede2]">
