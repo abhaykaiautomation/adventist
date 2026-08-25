@@ -30,7 +30,9 @@ export default async function ParentDirectoryPage() {
             {parents.map((p) => (
               <tr key={p.id} className="border-b last:border-0">
                 <td className="p-3">
-                  <p className="font-medium text-gray-800">{p.name ?? p.email}</p>
+                  <Link href={`/admin/parents/${p.id}`} className="font-medium text-blue-700 hover:underline">
+                    {p.name ?? p.email}
+                  </Link>
                   <p className="text-xs text-gray-500">{p.email}</p>
                 </td>
                 <td className="p-3">

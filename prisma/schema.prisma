@@ -51,6 +51,8 @@ model User {
   visitLogs            VisitLog[]
   createdShareLinks    FormShareLink[]
   payments             Payment[]
+  cartOrders           CartOrder[]
+  accountCredits       AccountCredit[]
 }
 
 enum RequestStatus {
@@ -310,6 +312,96 @@ model Payment {
   stripePaymentIntentId   String?
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Fee catalog + cart checkout — admin-managed fees (registration, curriculum,
+// etc.) parents pick from and pay together in one Stripe Checkout Session,
+// optionally alongside setting up monthly tuition autopay in the same order.
+// ---------------------------------------------------------------------------
+
+enum FeeItemType {
+  ONE_TIME
+  RECURRING_MONTHLY
+}
+
+enum CartOrderStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+}
+
+model FeeItem {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  amountCents Int
+  type        FeeItemType @default(ONE_TIME)
+  isActive    Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  cartItems CartItem[]
+}
+
+model CartOrder {
+  id                      String          @id @default(uuid())
+  user                    User            @relation(fields: [userId], references: [id])
+  userId                  String
+  status                  CartOrderStatus @default(PENDING)
+  stripeCheckoutSessionId String?         @unique
+  // Only set if this order's session was subscription-mode (tuition and/or a
+  // RECURRING_MONTHLY fee item was included).
+  stripeSubscriptionId    String?         @unique
+  includesTuition         Boolean         @default(false)
+  creditAppliedCents      Int             @default(0)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  items      CartItem[]
+  creditUses CartOrderCreditUse[]
+}
+
+model CartItem {
+  id          String    @id @default(uuid())
+  cartOrder   CartOrder @relation(fields: [cartOrderId], references: [id])
+  cartOrderId String
+  feeItem     FeeItem   @relation(fields: [feeItemId], references: [id])
+  feeItemId   String
+  amountCents Int // snapshot at purchase time, after any credit discount
+
+  @@unique([cartOrderId, feeItemId])
+}
+
+// An admin-issued credit against a family's account (prorated adjustments,
+// goodwill, etc.) that auto-applies against the one-time portion of their
+// next cart checkout(s) — never against a recurring line, to avoid Stripe
+// subscription-proration complexity.
+model AccountCredit {
+  id             String   @id @default(uuid())
+  user           User     @relation(fields: [userId], references: [id])
+  userId         String
+  amountCents    Int // original amount issued
+  remainingCents Int // decremented only once a checkout using it is confirmed PAID
+  reason         String
+  issuedBy       String // admin user id
+  createdAt      DateTime @default(now())
+
+  uses CartOrderCreditUse[]
+}
+
+// Which credit rows a given order drew from, and how much — lets the webhook
+// decrement the right amounts even if balances moved between checkout
+// creation and payment confirmation.
+model CartOrderCreditUse {
+  id              String        @id @default(uuid())
+  cartOrder       CartOrder     @relation(fields: [cartOrderId], references: [id])
+  cartOrderId     String
+  accountCredit   AccountCredit @relation(fields: [accountCreditId], references: [id])
+  accountCreditId String
+  amountCents     Int
 }
 
 // ---------------------------------------------------------------------------

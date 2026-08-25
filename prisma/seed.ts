@@ -1571,6 +1571,59 @@ async function main() {
     }
   }
 
+  // Starter fee catalog for the parent-facing cart (/cart). Monthly tuition
+  // itself is intentionally not a FeeItem — it stays RateCard/submission-
+  // driven, set up separately from the Schedule and Financial Agreement.
+  const FEE_ITEMS: {
+    id: string;
+    name: string;
+    description: string;
+    amountCents: number;
+    sortOrder: number;
+  }[] = [
+    {
+      id: "seed-fee-registration",
+      name: "Registration for New Students",
+      description: "Non-refundable.",
+      amountCents: 10000,
+      sortOrder: 1,
+    },
+    {
+      id: "seed-fee-curriculum",
+      name: "Curriculum Fee (September–May)",
+      description: "Non-refundable.",
+      amountCents: 20000,
+      sortOrder: 2,
+    },
+    {
+      id: "seed-fee-summer-activity",
+      name: "Summer Activity Fee (June–August)",
+      description: "Non-refundable.",
+      amountCents: 15000,
+      sortOrder: 3,
+    },
+  ];
+
+  for (const fee of FEE_ITEMS) {
+    await prisma.feeItem.upsert({
+      where: { id: fee.id },
+      update: {
+        name: fee.name,
+        description: fee.description,
+        amountCents: fee.amountCents,
+        sortOrder: fee.sortOrder,
+      },
+      create: {
+        id: fee.id,
+        name: fee.name,
+        description: fee.description,
+        amountCents: fee.amountCents,
+        type: "ONE_TIME",
+        sortOrder: fee.sortOrder,
+      },
+    });
+  }
+
   console.log("Seed complete.");
 }
 

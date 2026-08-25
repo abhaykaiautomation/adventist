@@ -10,6 +10,7 @@ import { ShareWithPhysician } from "@/components/forms/ShareWithPhysician";
 import { FieldQuestionPopover, type FieldQuestionData } from "@/components/forms/FieldQuestionPopover";
 import { SignaturePad, type SignaturePadHandle } from "@/components/forms/SignaturePad";
 import { ChatWidget } from "@/components/chatbot/ChatWidget";
+import { useCart } from "@/components/cart/CartProvider";
 
 type SubmissionStatus =
   | "DRAFT"
@@ -199,6 +200,8 @@ export function FormRenderer({
   status: initialStatus,
   fieldQuestions: initialQuestions,
   tuitionPaymentStatus: initialTuitionPaymentStatus = null,
+  feeItems = [],
+  paidFeeItemIds = [],
 }: {
   templateId: string;
   schema: FormSchema;
@@ -207,9 +210,12 @@ export function FormRenderer({
   status: SubmissionStatus;
   fieldQuestions: FieldQuestionData[];
   tuitionPaymentStatus?: PaymentStatus;
+  feeItems?: { id: string; name: string; amountCents: number }[];
+  paidFeeItemIds?: string[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const cart = useCart();
   const parentSections = useMemo(() => sectionsForAudience(schema, "PARENT"), [schema]);
   const externalSigner = useMemo(() => hasExternalSigner(schema), [schema]);
   const zodSchema = useMemo(() => buildZodSchema(schema, "PARENT"), [schema]);
@@ -225,7 +231,7 @@ export function FormRenderer({
   const [banner, setBanner] = useState<string | null>(null);
   const [showSignModal, setShowSignModal] = useState(false);
   const [signerName, setSignerName] = useState("");
-  const [startingTuitionCheckout, setStartingTuitionCheckout] = useState(false);
+  const [addingTuitionToCart, setAddingTuitionToCart] = useState(false);
   const sigRef = useRef<SignaturePadHandle>(null);
 
   // Live tuition auto-calculation — a field-key convention (any form with a
@@ -273,28 +279,49 @@ export function FormRenderer({
 
   useEffect(() => {
     if (searchParams.get("paid") !== "1") return;
-    setBanner("Payment received by Stripe — this updates to Paid below once it's confirmed.");
+    setBanner("Payment received by Stripe — please sign below to finish submitting.");
     router.replace(`/forms/${templateId}`);
     router.refresh();
+    // Pay Online skips the manual Send button — paying is what triggers
+    // submission, so prompt for the signature the moment they're back.
+    setShowSignModal(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  const watchedTuitionAmount = watch("monthly_tuition_amount" as never);
   const watchedPaymentMethod = watch("payment_method" as never);
-  const showTuitionCheckout = hasTuitionLookup && String(watchedPaymentMethod) === "Pay Online (autopay)";
+  const isPayOnline = String(watchedPaymentMethod) === "Pay Online (autopay)";
+  const tuitionInCart = !!submissionId && cart.hasTuition(submissionId);
+  const checkedOneTimeCents = feeItems.reduce(
+    (sum, f) => sum + (!paidFeeItemIds.includes(f.id) && cart.hasFeeItem(f.id) ? f.amountCents : 0),
+    0
+  );
 
-  /** If the form is still editable, saves whatever's in it right now (even
-   * if "Save as Draft" was never clicked) so the Checkout Session's amount
-   * matches what the webhook will later mark PAID against. A submitted/
+  /** Adds (or removes) the monthly tuition line in the shared cart — paid
+   * together with whatever else is in it via the top-right cart widget,
+   * not immediately. If the form is still editable, saves it first (even if
+   * "Save as Draft" was never clicked) so the cart always has a real
+   * submissionId and dataJson to check out against later. A submitted/
    * approved submission is locked from editing (see EDITABLE_STATUSES in
    * the draft route) — its dataJson is already final, so this skips
-   * straight to checkout with the existing submissionId instead of hitting
-   * that route's 409. */
-  async function payTuitionOnline() {
-    setStartingTuitionCheckout(true);
+   * straight to using the existing submissionId instead of hitting that
+   * route's 409. */
+  async function toggleTuitionInCart() {
+    if (submissionId && cart.hasTuition(submissionId)) {
+      cart.removeTuition();
+      return;
+    }
+
+    setAddingTuitionToCart(true);
     setBanner(null);
     try {
-      let idToCharge = submissionId;
+      const amount = Number(getValues("monthly_tuition_amount" as never));
+      if (!amount || amount <= 0) {
+        setBanner("Enter a monthly tuition amount above first.");
+        return;
+      }
 
+      let idToUse = submissionId;
       if (!readOnly) {
         const draftRes = await fetch(`/api/forms/${templateId}/draft`, {
           method: "POST",
@@ -303,39 +330,25 @@ export function FormRenderer({
         });
         const draftData = await draftRes.json().catch(() => ({}));
         if (!draftRes.ok) {
-          setBanner(draftData.error ?? `Couldn't save your form before checkout (HTTP ${draftRes.status}).`);
+          setBanner(draftData.error ?? `Couldn't save your form (HTTP ${draftRes.status}).`);
           return;
         }
-        idToCharge = draftData.submissionId;
-        setSubmissionId(idToCharge);
+        idToUse = draftData.submissionId;
+        setSubmissionId(idToUse);
         setStatus((prev) => (prev === "DRAFT" || prev === null ? "DRAFT" : prev));
       }
 
-      if (!idToCharge) {
-        setBanner("Save this form first, then set up autopay.");
+      if (!idToUse) {
+        setBanner("Save this form first, then add tuition to your cart.");
         return;
       }
 
-      const checkoutRes = await fetch("/api/payments/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "TUITION",
-          submissionId: idToCharge,
-          returnTo: `/forms/${templateId}`,
-        }),
-      });
-      const checkoutData = await checkoutRes.json().catch(() => ({}));
-      if (checkoutData.url) {
-        window.location.href = checkoutData.url;
-      } else {
-        setBanner(checkoutData.error ?? `Couldn't start checkout (HTTP ${checkoutRes.status}).`);
-      }
+      cart.setTuition(idToUse, Math.round(amount * 100));
     } catch (err) {
-      console.error("payTuitionOnline failed", err);
-      setBanner("Something went wrong starting checkout — check the browser console for details.");
+      console.error("toggleTuitionInCart failed", err);
+      setBanner("Something went wrong — check the browser console for details.");
     } finally {
-      setStartingTuitionCheckout(false);
+      setAddingTuitionToCart(false);
     }
   }
 
@@ -467,6 +480,73 @@ export function FormRenderer({
       <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
         {parentSections.map((section) => (
           <div key={section.key} className="space-y-4">
+          {/* Rendered just before Agreement & Signature (not after the whole
+              form) so that section's checkbox stays immediately above the
+              Save/Send buttons. */}
+          {section.key === "agreement" && hasTuitionLookup && (
+            <div className="space-y-2 rounded-md border border-[#f3ede2]/20 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-[#f3ede2]">
+                    Monthly Tuition fee: Based on selections in &ldquo;Schedule &amp; Room Selection&rdquo;
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-[#f6c667]">
+                    {Number(watchedTuitionAmount) > 0 ? `$${Number(watchedTuitionAmount).toFixed(2)}/mo` : "—"}
+                  </p>
+                </div>
+                {initialTuitionPaymentStatus === "PAID" ? (
+                  <span className="shrink-0 text-xs text-emerald-300">Autopay set up</span>
+                ) : (
+                  Number(watchedTuitionAmount) > 0 &&
+                  (isPayOnline ? (
+                    <button
+                      type="button"
+                      onClick={toggleTuitionInCart}
+                      disabled={addingTuitionToCart}
+                      className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                        tuitionInCart
+                          ? "border border-red-300 text-red-300 hover:bg-red-500/10"
+                          : "bg-[#f6c667] text-[#241a5e] hover:bg-[#f6c667]/90"
+                      }`}
+                    >
+                      {addingTuitionToCart ? "Adding…" : tuitionInCart ? "Remove from Cart" : "Add to CART"}
+                    </button>
+                  ) : (
+                    <label className="flex shrink-0 items-center gap-2 text-sm text-[#f3ede2]">
+                      <input
+                        type="checkbox"
+                        checked={tuitionInCart}
+                        disabled={addingTuitionToCart}
+                        onChange={toggleTuitionInCart}
+                      />
+                      Include
+                    </label>
+                  ))
+                )}
+              </div>
+              <p className="text-xs text-[#f3ede2]/60">
+                Late arrival charge (past 6pm), paid immediately to the caregiver on duty: $1.00/minute
+              </p>
+
+              {!isPayOnline && (checkedOneTimeCents > 0 || tuitionInCart) && (
+                <div className="space-y-1 border-t border-[#f3ede2]/10 pt-2 text-sm text-[#f3ede2]">
+                  <p className="text-xs font-medium text-[#f3ede2]/70">Final Amount (checked items)</p>
+                  {checkedOneTimeCents > 0 && (
+                    <div className="flex justify-between">
+                      <span>One-time</span>
+                      <span>${(checkedOneTimeCents / 100).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {tuitionInCart && (
+                    <div className="flex justify-between">
+                      <span>Monthly</span>
+                      <span>${Number(watchedTuitionAmount).toFixed(2)}/mo</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <fieldset disabled={readOnly} className="space-y-4">
             <legend className="font-[family-name:var(--font-fraunces)] text-lg font-medium text-[#f6c667]">
               {section.label}
@@ -481,7 +561,7 @@ export function FormRenderer({
             >
             {groupFieldsByRow(section.fields).map((group) =>
               group.length > 1 ? (
-                <div key={group.map((f) => f.key).join("+")} className="flex flex-wrap gap-3">
+                <div key={group.map((f) => f.key).join("+")} className="flex flex-wrap items-start gap-3">
                   {group.map((field) => (
                     <div key={field.key} className="min-w-[140px] flex-1">
                       <FieldInput
@@ -494,6 +574,11 @@ export function FormRenderer({
                       />
                     </div>
                   ))}
+                  {group.some((f) => f.key === "monthly_tuition_amount") && checkedOneTimeCents > 0 && (
+                    <p className="w-full text-xs text-[#f6c667]">
+                      + ${(checkedOneTimeCents / 100).toFixed(2)} one-time payment selected above
+                    </p>
+                  )}
                 </div>
               ) : (
                 <FieldInput
@@ -531,55 +616,92 @@ export function FormRenderer({
           </fieldset>
 
           {/* Outside the fieldset on purpose — a submitted/approved form
-              locks its fields, but paying tuition must still work then. */}
-          {showTuitionCheckout && section.fields.some((f) => f.key === "monthly_tuition_amount") && (
-            <div className="rounded-md border border-[#f6c667]/40 bg-[#f6c667]/10 p-3">
-              {initialTuitionPaymentStatus === "PAID" ? (
-                <p className="text-sm text-[#f3ede2]">
-                  Monthly autopay is set up — thank you!
-                </p>
-              ) : (
-                <>
-                  <p className="text-sm text-[#f3ede2]/80">
-                    {initialTuitionPaymentStatus === "FAILED"
-                      ? "Your last autopay charge failed — set it up again below."
-                      : initialTuitionPaymentStatus === "CANCELED"
-                        ? "Autopay was canceled — set it up again below."
-                        : "Set up monthly autopay for the tuition amount above via Stripe."}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={payTuitionOnline}
-                    disabled={startingTuitionCheckout}
-                    className="mt-2 rounded-md bg-[#f6c667] px-4 py-2 text-sm font-medium text-[#241a5e] hover:bg-[#f6c667]/90 disabled:opacity-50"
+              locks its fields, but adding a fee to the cart must still work. */}
+          {section.key === "other_charges" && feeItems.length > 0 && (
+            <div className="space-y-2">
+              {feeItems.map((fee) => {
+                const inCart = cart.hasFeeItem(fee.id);
+                const alreadyPaid = paidFeeItemIds.includes(fee.id);
+                return (
+                  <div
+                    key={fee.id}
+                    className="flex items-center justify-between gap-3 rounded-md border border-[#f3ede2]/20 p-3 text-sm text-[#f3ede2]"
                   >
-                    {startingTuitionCheckout ? "Redirecting…" : "Pay Online / Set Up Autopay"}
-                  </button>
-                </>
-              )}
+                    {alreadyPaid ? (
+                      <>
+                        <span>
+                          {fee.name} — ${(fee.amountCents / 100).toFixed(2)}
+                        </span>
+                        <span className="shrink-0 text-xs text-emerald-300">Paid</span>
+                      </>
+                    ) : isPayOnline ? (
+                      <>
+                        <span>
+                          {fee.name} — ${(fee.amountCents / 100).toFixed(2)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            inCart ? cart.removeFeeItem(fee.id) : cart.addFeeItem(fee.id, fee.name, fee.amountCents)
+                          }
+                          className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium ${
+                            inCart
+                              ? "border border-red-300 text-red-300 hover:bg-red-500/10"
+                              : "bg-[#f6c667] text-[#241a5e] hover:bg-[#f6c667]/90"
+                          }`}
+                        >
+                          {inCart ? "Remove from Cart" : "Add to CART"}
+                        </button>
+                      </>
+                    ) : (
+                      <label className="flex w-full items-center justify-between gap-3">
+                        <span className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={inCart}
+                            onChange={() =>
+                              inCart ? cart.removeFeeItem(fee.id) : cart.addFeeItem(fee.id, fee.name, fee.amountCents)
+                            }
+                          />
+                          {fee.name}
+                        </span>
+                        <span className="shrink-0">${(fee.amountCents / 100).toFixed(2)}</span>
+                      </label>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
           </div>
         ))}
 
         {!readOnly && (
-          <div className="flex gap-3 border-t border-[#f3ede2]/10 pt-6">
-            <button
-              type="button"
-              onClick={saveDraft}
-              disabled={saving}
-              className="rounded-md border border-[#f3ede2]/20 px-4 py-2 text-sm font-medium text-[#f3ede2] hover:bg-[#f3ede2]/10 disabled:opacity-50"
-            >
-              Save as Draft
-            </button>
-            <button
-              type="button"
-              onClick={attemptSend}
-              disabled={saving}
-              className="rounded-md bg-[#f6c667] px-4 py-2 text-sm font-medium text-[#241a5e] hover:bg-[#f6c667]/90 disabled:opacity-50"
-            >
-              Send
-            </button>
+          <div className="border-t border-[#f3ede2]/10 pt-6">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={saveDraft}
+                disabled={saving}
+                className="rounded-md border border-[#f3ede2]/20 px-4 py-2 text-sm font-medium text-[#f3ede2] hover:bg-[#f3ede2]/10 disabled:opacity-50"
+              >
+                Save as Draft
+              </button>
+              <button
+                type="button"
+                onClick={attemptSend}
+                disabled={saving || isPayOnline}
+                className="rounded-md bg-[#f6c667] px-4 py-2 text-sm font-medium text-[#241a5e] hover:bg-[#f6c667]/90 disabled:opacity-50"
+              >
+                Send
+              </button>
+            </div>
+            {isPayOnline && (
+              <p className="mt-2 text-xs text-[#f3ede2]/60">
+                Send is disabled — with Pay Online selected, add items to your cart (top right) and
+                check out; this form submits automatically once payment is confirmed.
+              </p>
+            )}
           </div>
         )}
       </form>

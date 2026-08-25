@@ -2,18 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/server";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe/client";
+import { ensureStripeCustomer } from "@/lib/stripe/customer";
 import { errorResponse } from "@/lib/api/errors";
 
 const APPLICATION_FEE_CENTS = Number(process.env.STRIPE_APPLICATION_FEE_CENTS ?? 15000);
-
-async function ensureStripeCustomer(userId: string, email: string, name: string | null) {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  if (user.stripeCustomerId) return user.stripeCustomerId;
-
-  const customer = await getStripe().customers.create({ email, name: name ?? undefined });
-  await prisma.user.update({ where: { id: userId }, data: { stripeCustomerId: customer.id } });
-  return customer.id;
-}
 
 /** Creates a Stripe Checkout Session for either the one-time application fee
  * or a monthly tuition subscription, and records a PENDING Payment row that

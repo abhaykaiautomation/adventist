@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { CartWidget } from "@/components/cart/CartWidget";
 
 /** The one header shown at the top of every page — landing, forms/policies,
  * and admin alike — so branding, primary nav, and auth state never diverge
@@ -79,6 +80,7 @@ export function SiteHeader() {
 
           {loading ? null : appUser ? (
             <div className="flex items-center gap-3 normal-case text-[#f3ede2]">
+              <CartWidget />
               <span>
                 Hello, <span className="font-semibold">{firstName}</span>
               </span>

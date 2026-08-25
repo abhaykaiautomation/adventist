@@ -27,20 +27,42 @@ export async function POST(req: NextRequest) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+      const stripePaymentIntentId =
+        typeof session.payment_intent === "string" ? session.payment_intent : undefined;
+      const stripeSubscriptionId =
+        typeof session.subscription === "string" ? session.subscription : undefined;
+
       const payment = await prisma.payment.findUnique({
         where: { stripeCheckoutSessionId: session.id },
       });
       if (payment) {
         await prisma.payment.update({
           where: { id: payment.id },
-          data: {
-            status: "PAID",
-            stripePaymentIntentId:
-              typeof session.payment_intent === "string" ? session.payment_intent : undefined,
-            stripeSubscriptionId:
-              typeof session.subscription === "string" ? session.subscription : undefined,
-          },
+          data: { status: "PAID", stripePaymentIntentId, stripeSubscriptionId },
         });
+      }
+
+      // A cart order is separate from (but may accompany) a tuition Payment
+      // row above — both can share the same session id. Credit is only ever
+      // spent here, on confirmed payment, never at checkout creation, so an
+      // abandoned checkout never burns a family's balance.
+      const cartOrder = await prisma.cartOrder.findUnique({
+        where: { stripeCheckoutSessionId: session.id },
+        include: { creditUses: true },
+      });
+      if (cartOrder && cartOrder.status !== "PAID") {
+        await prisma.$transaction([
+          prisma.cartOrder.update({
+            where: { id: cartOrder.id },
+            data: { status: "PAID", stripeSubscriptionId },
+          }),
+          ...cartOrder.creditUses.map((use) =>
+            prisma.accountCredit.update({
+              where: { id: use.accountCreditId },
+              data: { remainingCents: { decrement: use.amountCents } },
+            })
+          ),
+        ]);
       }
       break;
     }
@@ -54,6 +76,10 @@ export async function POST(req: NextRequest) {
           where: { stripeSubscriptionId: subscriptionId },
           data: { status: "FAILED" },
         });
+        await prisma.cartOrder.updateMany({
+          where: { stripeSubscriptionId: subscriptionId },
+          data: { status: "FAILED" },
+        });
       }
       break;
     }
@@ -61,6 +87,10 @@ export async function POST(req: NextRequest) {
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
       await prisma.payment.updateMany({
+        where: { stripeSubscriptionId: subscription.id },
+        data: { status: "CANCELED" },
+      });
+      await prisma.cartOrder.updateMany({
         where: { stripeSubscriptionId: subscription.id },
         data: { status: "CANCELED" },
       });

@@ -19,6 +19,7 @@ export function AdminShell({
     { href: "/admin/parents", label: "Parent Directory" },
     { href: "/admin/visitors", label: "All Visitors" },
     { href: "/admin/submissions", label: "Submission Queue" },
+    { href: "/admin/fees", label: "Fee Items" },
     { href: "/admin/policies", label: "Policies & Information" },
     { href: "/admin/questions", label: "Open Questions" },
     ...(isSuperAdmin

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Poppins, Fraunces } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { CartProvider } from "@/components/cart/CartProvider";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import "./globals.css";
@@ -44,9 +45,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex h-screen flex-col overflow-hidden">
         <AuthProvider>
-          <SiteHeader />
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
-          <SiteFooter />
+          <CartProvider>
+            <SiteHeader />
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
+            <SiteFooter />
+          </CartProvider>
         </AuthProvider>
       </body>
     </html>
