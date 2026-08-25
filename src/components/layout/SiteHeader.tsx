@@ -25,14 +25,12 @@ export function SiteHeader() {
     <header className="relative z-20 shrink-0 border-b border-[#f3ede2]/10 bg-[#241a5e] px-6 py-3 text-[#f3ede2] sm:px-10">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <Link href="/" className="flex items-center gap-3">
-          <div className="flex shrink-0 items-center rounded-lg bg-[#f3ede2] px-2.5 py-1.5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/TAA-Logo-2019-r.png"
-              alt="Troy Adventist Academy"
-              className="h-7 w-auto sm:h-9"
-            />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/TAA-Logo-header.png"
+            alt="Troy Adventist Academy"
+            className="h-10 w-auto shrink-0 sm:h-14"
+          />
           <div className="leading-tight">
             <div
               className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[#f6c667] sm:text-xs"
