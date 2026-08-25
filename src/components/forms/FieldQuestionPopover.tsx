@@ -86,23 +86,23 @@ export function FieldQuestionPopover({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-6 z-20 w-72 rounded-md border bg-white p-3 shadow-lg">
+        <div className="absolute left-0 top-6 z-20 w-72 rounded-md border border-[#f3ede2]/15 bg-[#241a5e] p-3 shadow-lg">
           <div className="max-h-48 space-y-2 overflow-y-auto">
             {questions.length === 0 && (
-              <p className="text-xs text-gray-500">No questions on this field yet.</p>
+              <p className="text-xs text-[#f3ede2]/50">No questions on this field yet.</p>
             )}
             {questions.map((q) => (
-              <div key={q.id} className="rounded bg-gray-50 p-2 text-xs">
-                <p className="font-medium text-gray-800">You: {q.question}</p>
-                {q.answer && <p className="mt-1 text-gray-700">Admin: {q.answer}</p>}
-                <p className="mt-1 text-[10px] uppercase text-gray-400">{q.status}</p>
+              <div key={q.id} className="rounded bg-[#f3ede2]/5 p-2 text-xs">
+                <p className="font-medium text-[#f3ede2]">You: {q.question}</p>
+                {q.answer && <p className="mt-1 text-[#f3ede2]/80">Admin: {q.answer}</p>}
+                <p className="mt-1 text-[10px] uppercase text-[#cdc4ec]">{q.status}</p>
                 {q.status === "OPEN" && (
-                  <button onClick={() => withdraw(q.id)} disabled={busy} className="mt-1 text-blue-700 hover:underline">
+                  <button onClick={() => withdraw(q.id)} disabled={busy} className="mt-1 text-[#f6c667] hover:underline">
                     Withdraw
                   </button>
                 )}
                 {q.status === "ANSWERED" && (
-                  <button onClick={() => resolve(q.id)} disabled={busy} className="mt-1 text-blue-700 hover:underline">
+                  <button onClick={() => resolve(q.id)} disabled={busy} className="mt-1 text-[#f6c667] hover:underline">
                     Mark resolved
                   </button>
                 )}
@@ -113,13 +113,13 @@ export function FieldQuestionPopover({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Ask the school office about this field…"
-            className="mt-2 w-full rounded border p-1.5 text-xs"
+            className="mt-2 w-full rounded border border-[#f3ede2]/20 bg-[#1a1246] p-1.5 text-xs text-[#f3ede2] placeholder:text-[#f3ede2]/40"
             rows={2}
           />
           <button
             onClick={ask}
             disabled={busy || !draft.trim()}
-            className="mt-1 w-full rounded bg-blue-700 py-1 text-xs font-medium text-white disabled:opacity-50"
+            className="mt-1 w-full rounded bg-[#f6c667] py-1 text-xs font-medium text-[#241a5e] hover:bg-[#f6c667]/90 disabled:opacity-50"
           >
             Ask
           </button>

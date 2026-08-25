@@ -22,7 +22,7 @@ export default async function OpenQuestionsPage() {
 
       <ul className="mt-6 space-y-3">
         {questions.map((q) => (
-          <li key={q.id} className="rounded-md border bg-white p-4">
+          <li key={q.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-xs text-gray-500">
               <Link href={`/admin/submissions/${q.submission.id}`} className="text-blue-700 hover:underline">
                 {q.submission.template.name}
@@ -34,7 +34,7 @@ export default async function OpenQuestionsPage() {
           </li>
         ))}
         {questions.length === 0 && (
-          <li className="rounded-md border bg-white p-4 text-sm text-gray-500">
+          <li className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-500 shadow-sm">
             No open questions right now.
           </li>
         )}

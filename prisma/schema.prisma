@@ -33,13 +33,14 @@ enum UserStatus {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  firebaseUid  String   @unique
-  email        String   @unique
-  name         String?
-  role         Role     @default(PARENT)
-  status       UserStatus @default(ACTIVE) // for admins: PENDING/APPROVED/REVOKED
-  createdAt    DateTime @default(now())
+  id               String   @id @default(uuid())
+  firebaseUid      String   @unique
+  email            String   @unique
+  name             String?
+  role             Role     @default(PARENT)
+  status           UserStatus @default(ACTIVE) // for admins: PENDING/APPROVED/REVOKED
+  stripeCustomerId String?  @unique
+  createdAt        DateTime @default(now())
 
   children             Child[]
   submissions          Submission[]
@@ -49,6 +50,7 @@ model User {
   activityLogs         ActivityLog[]
   visitLogs            VisitLog[]
   createdShareLinks    FormShareLink[]
+  payments             Payment[]
 }
 
 enum RequestStatus {
@@ -65,6 +67,19 @@ model AdminRequest {
   reviewedBy  String?
   reviewedAt  DateTime?
   status      RequestStatus @default(PENDING)
+}
+
+// A super-admin pre-authorizing a staff member's email before that person
+// has ever signed in — getServerUser() checks this on first sign-in and
+// grants the role/APPROVED status immediately instead of the normal
+// request/approve flow.
+model StaffInvite {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  role      Role
+  invitedBy String
+  createdAt DateTime  @default(now())
+  usedAt    DateTime?
 }
 
 // ---------------------------------------------------------------------------
@@ -94,15 +109,26 @@ model VisitLog {
 // Forms and policies (both drive the dynamic left nav)
 // ---------------------------------------------------------------------------
 
+// The four left-nav sections. Both FormTemplate and PolicyPage carry one of
+// these, so a single section (e.g. Parent Consent) can mix fillable forms
+// and reference/acknowledgment pages.
+enum NavCategory {
+  FORMS
+  INFORMATION
+  POLICIES
+  PARENT_CONSENT
+}
+
 model FormTemplate {
-  id         String   @id @default(uuid())
-  name       String   // e.g. "New Student Admission Form"
-  version    Int      @default(1)
-  schemaJson Json     // field defs derived from the scanned paper form
-  isActive   Boolean  @default(true)
-  sortOrder  Int      @default(0) // controls nav position, lower first
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id         String      @id @default(uuid())
+  name       String      // e.g. "New Student Admission Form"
+  version    Int         @default(1)
+  schemaJson Json        // field defs derived from the scanned paper form
+  isActive   Boolean     @default(true)
+  sortOrder  Int         @default(0) // controls nav position, lower first
+  category   NavCategory @default(FORMS) // which left-nav section this appears under
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
   submissions Submission[]
 }
@@ -134,6 +160,7 @@ model Submission {
   activity       ActivityLog[]
   fieldQuestions FieldQuestion[]
   shareLinks     FormShareLink[]
+  payments       Payment[]
 }
 
 enum SignerRole {
@@ -157,15 +184,16 @@ model Signature {
 }
 
 model PolicyPage {
-  id                      String   @id @default(uuid())
-  title                   String   // e.g. "Safe Sleep & Medication Policy"
-  contentHtml             String   // rendered policy text
-  version                 Int      @default(1)
-  isActive                Boolean  @default(true)
-  requiresAcknowledgment  Boolean  @default(false) // e.g. Safe Sleep, Medication Policy — not reference-only pages
-  sortOrder               Int      @default(0) // controls nav position, lower first
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  id                      String      @id @default(uuid())
+  title                   String      // e.g. "Safe Sleep & Medication Policy"
+  contentHtml             String      // rendered policy text
+  version                 Int         @default(1)
+  isActive                Boolean     @default(true)
+  requiresAcknowledgment  Boolean     @default(false) // true = explicit checkbox; false = auto-marked read on view
+  sortOrder               Int         @default(0) // controls nav position, lower first
+  category                NavCategory @default(POLICIES) // which left-nav section this appears under
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
 
   acknowledgments PolicyAcknowledgment[]
 }
@@ -246,6 +274,42 @@ model FormShareLink {
   expiresAt      DateTime        // e.g. 14 days out
   accessedAt     DateTime?
   completedAt    DateTime?
+}
+
+// ---------------------------------------------------------------------------
+// Stripe payments — one-time application fee and recurring monthly tuition.
+// Checkout Sessions use inline price_data (Section-free-form amounts, since
+// tuition varies per family via RateCard) rather than pre-created Prices.
+// ---------------------------------------------------------------------------
+
+enum PaymentType {
+  APPLICATION_FEE
+  TUITION
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+}
+
+model Payment {
+  id                      String        @id @default(uuid())
+  user                    User          @relation(fields: [userId], references: [id])
+  userId                  String
+  // Only set for TUITION — ties the subscription back to the Schedule and
+  // Financial Agreement submission that produced its monthly rate.
+  submission              Submission?   @relation(fields: [submissionId], references: [id])
+  submissionId            String?
+  type                    PaymentType
+  status                  PaymentStatus @default(PENDING)
+  amountCents             Int
+  stripeCheckoutSessionId String?       @unique
+  stripeSubscriptionId    String?       @unique
+  stripePaymentIntentId   String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
 }
 
 // ---------------------------------------------------------------------------

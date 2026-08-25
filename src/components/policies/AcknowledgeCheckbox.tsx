@@ -29,14 +29,14 @@ export function AcknowledgeCheckbox({
 
   if (acknowledged) {
     return (
-      <p className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-900">
+      <p className="rounded-md border border-emerald-400/40 bg-emerald-400/10 p-3 text-sm text-emerald-300">
         You acknowledged this policy.
       </p>
     );
   }
 
   return (
-    <label className="flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+    <label className="flex items-start gap-3 rounded-md border border-[#f6c667]/40 bg-[#f6c667]/10 p-3 text-sm text-[#f6c667]">
       <input
         type="checkbox"
         disabled={busy}

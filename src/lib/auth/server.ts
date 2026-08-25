@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { getAdminAuth } from "@/lib/firebase/admin";
+import { getAdminAuth, setAdminClaim } from "@/lib/firebase/admin";
 import { prisma } from "@/lib/prisma";
 import type { User } from "@/generated/prisma/client";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
@@ -23,15 +23,43 @@ export async function getServerUser(): Promise<User | null> {
   try {
     const decoded = await getAdminAuth().verifySessionCookie(sessionCookie, true);
 
-    const user = await prisma.user.upsert({
-      where: { firebaseUid: decoded.uid },
-      update: { email: decoded.email ?? undefined, name: decoded.name ?? undefined },
-      create: {
+    const existing = await prisma.user.findUnique({ where: { firebaseUid: decoded.uid } });
+    if (existing) {
+      return prisma.user.update({
+        where: { id: existing.id },
+        data: { email: decoded.email ?? undefined, name: decoded.name ?? undefined },
+      });
+    }
+
+    // First sign-in ever for this Firebase account — honor a staff invite a
+    // super-admin created ahead of time (Section 3 shortcut) instead of
+    // defaulting to PARENT/ACTIVE.
+    const invite = decoded.email
+      ? await prisma.staffInvite.findUnique({ where: { email: decoded.email } })
+      : null;
+
+    const user = await prisma.user.create({
+      data: {
         firebaseUid: decoded.uid,
         email: decoded.email ?? "",
         name: decoded.name ?? null,
+        role: invite?.role ?? "PARENT",
+        status: invite ? "APPROVED" : "ACTIVE",
       },
     });
+
+    if (invite) {
+      await prisma.staffInvite.update({ where: { id: invite.id }, data: { usedAt: new Date() } });
+      await prisma.adminRequest.create({
+        data: {
+          userId: user.id,
+          status: "APPROVED",
+          reviewedBy: invite.invitedBy,
+          reviewedAt: new Date(),
+        },
+      });
+      await setAdminClaim(user.firebaseUid, invite.role as "ADMIN" | "SUPER_ADMIN");
+    }
 
     return user;
   } catch {

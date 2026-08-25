@@ -30,7 +30,7 @@ export default async function AdminOverviewPage() {
           <Link
             key={t.label}
             href={t.href}
-            className="rounded-lg border bg-white p-4 shadow-sm hover:border-blue-300"
+            className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-300"
           >
             <p className="text-3xl font-semibold text-blue-950">{t.value}</p>
             <p className="mt-1 text-sm text-gray-600">{t.label}</p>

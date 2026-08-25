@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Poppins, Fraunces } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -40,8 +42,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${fraunces.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <AuthProvider>{children}</AuthProvider>
+      <body className="flex h-screen flex-col overflow-hidden">
+        <AuthProvider>
+          <SiteHeader />
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
+          <SiteFooter />
+        </AuthProvider>
       </body>
     </html>
   );

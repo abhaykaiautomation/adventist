@@ -51,7 +51,7 @@ export function SubmissionActions({
         <button
           onClick={() => setStatus("UNDER_REVIEW")}
           disabled={busy}
-          className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           Mark Under Review
         </button>
@@ -71,13 +71,13 @@ export function SubmissionActions({
         </button>
       </div>
 
-      <div className="rounded-md border bg-white p-4">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <p className="text-sm font-medium text-gray-800">Request a correction on a field</p>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <select
             value={fieldKey}
             onChange={(e) => setFieldKey(e.target.value)}
-            className="rounded-md border p-2 text-sm sm:w-56"
+            className="rounded-md border border-gray-300 p-2 text-sm sm:w-56"
           >
             {fieldKeys.map((k) => (
               <option key={k} value={k}>
@@ -89,12 +89,12 @@ export function SubmissionActions({
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="e.g. Please re-upload a clearer photo of the birth certificate"
-            className="flex-1 rounded-md border p-2 text-sm"
+            className="flex-1 rounded-md border border-gray-300 p-2 text-sm"
           />
           <button
             onClick={requestChanges}
             disabled={busy || !comment.trim()}
-            className="rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+            className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
           >
             Send &amp; Flag Needs Changes
           </button>

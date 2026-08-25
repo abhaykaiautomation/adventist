@@ -76,6 +76,32 @@ export async function generateFormPdf({
     y -= size + 6;
   }
 
+  // Wraps at the page width — used for "note" fields (disclosure text,
+  // checklists), which are too long to fit drawLine's single-line-per-field
+  // assumption. Preserves the schema author's own line breaks as paragraphs.
+  function drawWrappedText(text: string, opts: { size?: number; color?: [number, number, number] } = {}) {
+    const size = opts.size ?? 9.5;
+    const maxWidth = PAGE_SIZE[0] - MARGIN * 2;
+
+    for (const paragraph of text.split("\n")) {
+      if (!paragraph.trim()) {
+        y -= size + 4;
+        continue;
+      }
+      let line = "";
+      for (const word of paragraph.split(" ")) {
+        const candidate = line ? `${line} ${word}` : word;
+        if (line && font.widthOfTextAtSize(candidate, size) > maxWidth) {
+          drawLine(line, { size, color: opts.color });
+          line = word;
+        } else {
+          line = candidate;
+        }
+      }
+      if (line) drawLine(line, { size, color: opts.color });
+    }
+  }
+
   drawLine(templateName, { bold: true, size: 18 });
   drawLine(
     variant === "blank"
@@ -92,9 +118,40 @@ export async function generateFormPdf({
     drawLine(section.label, { bold: true, size: 13, color: [0.05, 0.2, 0.45] });
 
     for (const field of section.fields) {
+      if (field.type === "note") {
+        if (field.label) drawLine(field.label, { bold: true, size: 10.5 });
+        if (field.helpText) drawWrappedText(field.helpText);
+        continue;
+      }
       const value = variant === "blank" ? "" : formatValue(dataJson?.[field.key]);
       drawLine(`${field.label}: ${variant === "blank" ? "____________________" : value}`);
     }
+
+    if (section.repeatable) {
+      const rowCount =
+        variant === "blank"
+          ? (section.repeatable.minRows ?? 1)
+          : Array.isArray(dataJson?.[section.key])
+            ? (dataJson![section.key] as unknown[]).length
+            : 0;
+      const rows =
+        variant !== "blank" && Array.isArray(dataJson?.[section.key])
+          ? (dataJson![section.key] as Record<string, unknown>[])
+          : [];
+
+      if (rowCount === 0) {
+        drawLine("(none provided)", { size: 9.5, color: [0.5, 0.5, 0.5] });
+      }
+      for (let i = 0; i < rowCount; i++) {
+        ensureSpace(14 * section.repeatable.rowFields.length + 16);
+        drawLine(`${i + 1}.`, { bold: true, size: 10.5 });
+        for (const rf of section.repeatable.rowFields) {
+          const rowValue = variant === "blank" ? "____________________" : formatValue(rows[i]?.[rf.key]);
+          drawLine(`   ${rf.label}: ${rowValue}`, { size: 9.5 });
+        }
+      }
+    }
+
     y -= 6;
   }
 

@@ -1,13 +1,16 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 
-export type FormStatusBadge = "NOT_STARTED" | "DRAFT" | "SUBMITTED" | "NEEDS_CHANGES";
+export type FormStatusBadge = "NOT_STARTED" | "DRAFT" | "SUBMITTED" | "NEEDS_CHANGES" | "REJECTED";
+
+export type NavCategory = "FORMS" | "INFORMATION" | "POLICIES" | "PARENT_CONSENT";
 
 export interface FormNavItem {
   id: string;
   name: string;
   badge: FormStatusBadge;
   submissionId: string | null;
+  category: NavCategory;
 }
 
 export interface PolicyNavItem {
@@ -15,6 +18,7 @@ export interface PolicyNavItem {
   title: string;
   requiresAcknowledgment: boolean;
   acknowledged: boolean;
+  category: NavCategory;
 }
 
 function badgeFromStatus(
@@ -23,7 +27,8 @@ function badgeFromStatus(
   if (!status) return "NOT_STARTED";
   if (status === "DRAFT") return "DRAFT";
   if (status === "NEEDS_CHANGES") return "NEEDS_CHANGES";
-  return "SUBMITTED"; // SUBMITTED, UNDER_REVIEW, AWAITING_EXTERNAL_SIGNER, APPROVED, REJECTED all read as "in the system"
+  if (status === "REJECTED") return "REJECTED";
+  return "SUBMITTED"; // SUBMITTED, UNDER_REVIEW, AWAITING_EXTERNAL_SIGNER, and APPROVED are in the system
 }
 
 /** Every active FormTemplate, with this parent's latest submission status. */
@@ -47,6 +52,7 @@ export async function getFormsNav(parentId: string): Promise<FormNavItem[]> {
       name: t.name,
       badge: badgeFromStatus(latest?.status),
       submissionId: latest?.id ?? null,
+      category: t.category,
     };
   });
 }
@@ -66,5 +72,6 @@ export async function getPoliciesNav(userId: string): Promise<PolicyNavItem[]> {
     title: p.title,
     requiresAcknowledgment: p.requiresAcknowledgment,
     acknowledged: p.acknowledgments.length > 0,
+    category: p.category,
   }));
 }

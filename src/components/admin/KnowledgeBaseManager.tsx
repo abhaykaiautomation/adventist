@@ -53,26 +53,26 @@ export function KnowledgeBaseManager({ initialDocs }: { initialDocs: KbDoc[] }) 
 
   return (
     <div className="mt-6 space-y-6">
-      <div className="rounded-md border bg-white p-4">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-gray-800">Add content</h2>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Title (e.g. 'Lunch Menu — Fall 2025')"
-          className="mt-2 w-full rounded-md border p-2 text-sm"
+          className="mt-2 w-full rounded-md border border-gray-300 p-2 text-sm"
         />
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Paste the FAQ answer, policy excerpt, or instruction text…"
           rows={5}
-          className="mt-2 w-full rounded-md border p-2 text-sm"
+          className="mt-2 w-full rounded-md border border-gray-300 p-2 text-sm"
         />
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         <button
           onClick={addDoc}
           disabled={busy || !title.trim() || !content.trim()}
-          className="mt-2 rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="mt-2 rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50"
         >
           Embed &amp; Save
         </button>
@@ -80,7 +80,7 @@ export function KnowledgeBaseManager({ initialDocs }: { initialDocs: KbDoc[] }) 
 
       <ul className="space-y-2">
         {docs.map((d) => (
-          <li key={d.id} className="rounded-md border bg-white p-4">
+          <li key={d.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="font-medium text-gray-800">{d.title}</p>
@@ -92,7 +92,7 @@ export function KnowledgeBaseManager({ initialDocs }: { initialDocs: KbDoc[] }) 
               <button
                 onClick={() => remove(d.id)}
                 disabled={busy}
-                className="shrink-0 text-sm text-red-700 hover:underline"
+                className="shrink-0 rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
               >
                 Delete
               </button>
@@ -100,7 +100,7 @@ export function KnowledgeBaseManager({ initialDocs }: { initialDocs: KbDoc[] }) 
           </li>
         ))}
         {docs.length === 0 && (
-          <li className="rounded-md border bg-white p-4 text-sm text-gray-500">
+          <li className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-500 shadow-sm">
             No knowledge base content yet.
           </li>
         )}

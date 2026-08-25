@@ -19,7 +19,10 @@ export default async function FormDetailPage({
   const submission = await prisma.submission.findFirst({
     where: { templateId, parentId: user.id },
     orderBy: { updatedAt: "desc" },
-    include: { fieldQuestions: { orderBy: { createdAt: "asc" } } },
+    include: {
+      fieldQuestions: { orderBy: { createdAt: "asc" } },
+      payments: { where: { type: "TUITION" }, orderBy: { createdAt: "desc" }, take: 1 },
+    },
   });
 
   return (
@@ -30,6 +33,7 @@ export default async function FormDetailPage({
       initialData={(submission?.dataJson as Record<string, unknown>) ?? {}}
       status={submission?.status ?? null}
       fieldQuestions={submission?.fieldQuestions ?? []}
+      tuitionPaymentStatus={submission?.payments[0]?.status ?? null}
     />
   );
 }

@@ -16,7 +16,7 @@ export default async function ParentDirectoryPage() {
     <div>
       <h1 className="text-2xl font-semibold text-blue-950">Parent Directory</h1>
 
-      <div className="mt-6 overflow-x-auto rounded-md border bg-white">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead className="border-b bg-gray-50 text-left text-xs uppercase text-gray-500">
             <tr>

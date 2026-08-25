@@ -24,10 +24,10 @@ export function AdminRequestActions({ requestId, status }: { requestId: string; 
   if (status === "PENDING") {
     return (
       <div className="flex gap-2">
-        <button onClick={() => act("approve")} disabled={busy} className="rounded-md bg-green-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
+        <button onClick={() => act("approve")} disabled={busy} className="rounded-md bg-green-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50">
           Approve
         </button>
-        <button onClick={() => act("reject")} disabled={busy} className="rounded-md bg-red-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
+        <button onClick={() => act("reject")} disabled={busy} className="rounded-md bg-red-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50">
           Reject
         </button>
       </div>
@@ -36,7 +36,7 @@ export function AdminRequestActions({ requestId, status }: { requestId: string; 
 
   if (status === "APPROVED") {
     return (
-      <button onClick={() => act("revoke")} disabled={busy} className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 disabled:opacity-50">
+      <button onClick={() => act("revoke")} disabled={busy} className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50">
         Revoke Access
       </button>
     );

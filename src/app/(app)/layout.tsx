@@ -12,12 +12,5 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getPoliciesNav(user.id),
   ]);
 
-  const isApprovedAdmin =
-    (user.role === "ADMIN" || user.role === "SUPER_ADMIN") && user.status === "APPROVED";
-
-  return (
-    <AppShell forms={forms} policies={policies} isApprovedAdmin={isApprovedAdmin}>
-      {children}
-    </AppShell>
-  );
+  return <AppShell forms={forms} policies={policies}>{children}</AppShell>;
 }

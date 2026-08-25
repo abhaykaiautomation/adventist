@@ -34,7 +34,7 @@ export function AnswerQuestionForm({ submissionId, questionId }: { submissionId:
       <button
         onClick={submit}
         disabled={busy || !answer.trim()}
-        className="rounded-md bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+        className="rounded-md bg-blue-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50"
       >
         Answer
       </button>
