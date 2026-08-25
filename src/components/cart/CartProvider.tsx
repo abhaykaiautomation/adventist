@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 interface CartFeeLine {
   kind: "FEE_ITEM";
@@ -40,20 +40,40 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
 
   useEffect(() => {
-    // Deliberately reading an external store (localStorage, unavailable
-    // during SSR) after mount, not synchronizing React state to itself —
-    // starting both the server render and this first client render empty
-    // is what avoids a hydration mismatch here.
+    // Deliberately reading external state (localStorage, the URL — neither
+    // available during SSR) after mount, not synchronizing React state to
+    // itself — starting both the server render and this first client render
+    // empty is what avoids a hydration mismatch here.
     try {
+      // A "?paid=1" return from a successful Stripe checkout means whatever
+      // was in the cart has now actually been charged — clear it here, for
+      // real, instead of optimistically when checkout was merely *started*
+      // (see CartWidget, which deliberately does NOT clear on redirect, so
+      // an abandoned/canceled checkout leaves the cart intact).
+      if (new URLSearchParams(window.location.search).get("paid") === "1") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setLines([]);
+        return;
+      }
       const raw = localStorage.getItem(STORAGE_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setLines(JSON.parse(raw));
     } catch {
       // Ignore a corrupt/blocked localStorage — just start with an empty cart.
     }
   }, []);
 
+  // The persist effect's very first run (same commit as the hydration effect
+  // above) closes over the pre-hydration `lines` ([]) — writing it would
+  // clobber real localStorage data with an empty array before hydration's
+  // own state update lands. Unconditionally skipping just that first run
+  // avoids the race; every run after reflects real, settled state.
+  const skippedInitialPersist = useRef(false);
+
   useEffect(() => {
+    if (!skippedInitialPersist.current) {
+      skippedInitialPersist.current = true;
+      return;
+    }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
     } catch {

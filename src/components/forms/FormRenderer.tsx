@@ -329,7 +329,7 @@ export function FormRenderer({
       }
 
       let idToUse = submissionId;
-      if (!readOnly) {
+      if (canSaveDraft) {
         const draftRes = await fetch(`/api/forms/${templateId}/draft`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -365,6 +365,12 @@ export function FormRenderer({
     status === "UNDER_REVIEW" ||
     status === "APPROVED" ||
     status === "AWAITING_EXTERNAL_SIGNER";
+  // Mirrors the draft route's EDITABLE_STATUSES exactly — readOnly (above)
+  // deliberately leaves REJECTED editable for the parent to fix and resend,
+  // but that also means REJECTED must NOT attempt a re-save here (the draft
+  // route 409s on it), unlike every other non-editable status which already
+  // has a real submissionId to add tuition against directly.
+  const canSaveDraft = status === null || status === "DRAFT" || status === "NEEDS_CHANGES";
   const openCount = questions.filter((q) => q.status === "OPEN").length;
 
   async function refreshQuestions() {

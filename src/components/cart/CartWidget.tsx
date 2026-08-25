@@ -41,7 +41,11 @@ export function CartWidget() {
       });
       const data = await res.json().catch(() => ({}));
       if (data.url) {
-        cart.clear();
+        // Don't clear the cart here — checkout is only *initiated*, not
+        // paid, at this point. If the parent abandons Stripe (no
+        // "subscribe") and comes back, the cart must still be there. It's
+        // cleared for real by CartProvider when a "?paid=1" success return
+        // is detected.
         window.location.href = data.url;
       } else {
         setError(data.error ?? `Couldn't start checkout (HTTP ${res.status}).`);
