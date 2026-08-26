@@ -90,16 +90,17 @@ export function SiteHeader() {
             {appUser ? (
               <Link
                 href="/forms"
-                className={`flex items-center gap-1 ${
+                className={`flex items-center gap-1 ${navLinkClass(
                   pathname.startsWith("/forms") || pathname.startsWith("/policies")
-                    ? "text-[#f6c667] underline decoration-2 underline-offset-4"
-                    : "text-[#f6c667]"
-                }`}
+                )}`}
               >
                 Enrollment <span aria-hidden="true">&#8599;</span>
               </Link>
             ) : (
-              <button onClick={() => signIn()} className="flex items-center gap-1 text-[#f6c667]">
+              <button
+                onClick={() => signIn()}
+                className="flex items-center gap-1 text-[#f3ede2] hover:text-[#f6c667]"
+              >
                 Enrollment <span aria-hidden="true">&#8599;</span>
               </button>
             )}
