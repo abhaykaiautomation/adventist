@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { CartWidget } from "@/components/cart/CartWidget";
+import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 
 /** The one header shown at the top of every page — landing, forms/policies,
  * and admin alike — so branding, primary nav, and auth state never diverge
@@ -51,6 +52,8 @@ export function SiteHeader() {
             <Link href="/our-mission" className={navLinkClass(pathname === "/our-mission")}>
               Our Mission
             </Link>
+
+            <InstallAppButton />
 
             {appUser ? (
               <Link

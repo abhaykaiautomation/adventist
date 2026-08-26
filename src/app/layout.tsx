@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Poppins, Fraunces } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,6 +36,15 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Troy Adventist Academy Preschool | Parent Handbook & Forms",
   description: "Digital admission and student forms for Troy Adventist Academy Preschool.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "TAA Preschool",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#241a5e",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -46,6 +56,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex h-screen flex-col overflow-hidden">
         <AuthProvider>
           <CartProvider>
+            <ServiceWorkerRegister />
             <SiteHeader />
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
             <SiteFooter />
