@@ -38,7 +38,12 @@ export const metadata: Metadata = {
   description: "Digital admission and student forms for Troy Adventist Academy Preschool.",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    // "black-translucent" overlays the status bar directly on top of page
+    // content (no reserved space) — without matching safe-area-inset CSS
+    // everywhere, that clips/overlaps the header instead of looking
+    // immersive. "default" keeps iOS reserving normal space for it, which
+    // this app never accounted for otherwise.
+    statusBarStyle: "default",
     title: "TAA Preschool",
   },
 };

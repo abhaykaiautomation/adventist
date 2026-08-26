@@ -5,6 +5,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   type Auth,
 } from "firebase/auth";
@@ -34,8 +36,31 @@ export function getFirebaseAuth(): Auth {
 
 const googleProvider = new GoogleAuthProvider();
 
+/** Installed/standalone PWA mode (and many in-app browser contexts) breaks
+ * window.open-based OAuth popups — they get blocked or lose their connection
+ * back to the opener, which looks like sign-in silently doing nothing.
+ * Redirect-based sign-in has no such problem, so it's what's used whenever
+ * the app is running installed rather than in a normal browser tab. */
+function isStandalone() {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true
+  );
+}
+
 export async function signInWithGoogle() {
-  return signInWithPopup(getFirebaseAuth(), googleProvider);
+  const auth = getFirebaseAuth();
+  if (isStandalone()) {
+    return signInWithRedirect(auth, googleProvider);
+  }
+  return signInWithPopup(auth, googleProvider);
+}
+
+/** Completes a signInWithRedirect flow after the browser navigates back —
+ * resolves to null (safely) when there was no pending redirect sign-in. */
+export async function completeRedirectSignIn() {
+  return getRedirectResult(getFirebaseAuth());
 }
 
 export async function signOut() {

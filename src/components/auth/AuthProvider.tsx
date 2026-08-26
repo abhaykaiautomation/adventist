@@ -8,7 +8,12 @@ import {
   useCallback,
 } from "react";
 import { onIdTokenChanged, type User as FirebaseUser } from "firebase/auth";
-import { getFirebaseAuth, signInWithGoogle, signOut as firebaseSignOut } from "@/lib/firebase/client";
+import {
+  getFirebaseAuth,
+  signInWithGoogle,
+  signOut as firebaseSignOut,
+  completeRedirectSignIn,
+} from "@/lib/firebase/client";
 
 export type Role = "PARENT" | "ADMIN" | "SUPER_ADMIN";
 export type UserStatus = "ACTIVE" | "PENDING" | "APPROVED" | "REVOKED";
@@ -47,6 +52,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Completes a signInWithRedirect flow (used in standalone/installed
+    // mode — see lib/firebase/client.ts) after the browser navigates back.
+    // Resolves to null harmlessly when there was no pending redirect.
+    completeRedirectSignIn().catch((err) => {
+      console.error("Redirect sign-in failed", err);
+    });
+
     const unsubscribe = onIdTokenChanged(getFirebaseAuth(), async (user) => {
       setFirebaseUser(user);
 
