@@ -58,7 +58,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${fraunces.variable} h-full antialiased`}
     >
-      <body className="flex h-screen flex-col overflow-hidden">
+      {/* h-dvh (dynamic viewport height), not h-screen (100vh) — 100vh is
+          calculated inconsistently in mobile/standalone-PWA contexts, which
+          left content cut off or the shell taller than the real visible
+          area; dvh tracks the actual visible viewport instead. */}
+      <body className="flex h-dvh flex-col overflow-hidden">
         <AuthProvider>
           <CartProvider>
             <ServiceWorkerRegister />

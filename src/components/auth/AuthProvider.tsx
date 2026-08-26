@@ -34,16 +34,36 @@ interface AuthContextValue {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshAppUser: () => Promise<void>;
+  signInError: string | null;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const VISIT_LOGGED_KEY = "visitLoggedForSession";
 
+/** Sign-in used to fail totally silently (no popup, no error, nothing) on
+ * any environmental/network hiccup — this turns whatever Firebase threw
+ * into something a parent can actually read instead of "nothing happened". */
+function describeAuthError(err: unknown): string {
+  const code = (err as { code?: string } | null)?.code;
+  switch (code) {
+    case "auth/popup-closed-by-user":
+    case "auth/cancelled-popup-request":
+      return "Sign-in was closed before finishing — please try again.";
+    case "auth/unauthorized-domain":
+      return "This site isn't authorized for sign-in yet — contact the school office.";
+    case "auth/network-request-failed":
+      return "Network error during sign-in — check your connection and try again.";
+    default:
+      return "Sign-in failed — please try again.";
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [signInError, setSignInError] = useState<string | null>(null);
 
   const refreshAppUser = useCallback(async () => {
     const res = await fetch("/api/auth/me");
@@ -57,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Resolves to null harmlessly when there was no pending redirect.
     completeRedirectSignIn().catch((err) => {
       console.error("Redirect sign-in failed", err);
+      setSignInError(describeAuthError(err));
     });
 
     const unsubscribe = onIdTokenChanged(getFirebaseAuth(), async (user) => {
@@ -89,7 +110,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshAppUser]);
 
   const signIn = useCallback(async () => {
-    await signInWithGoogle();
+    setSignInError(null);
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      console.error("Sign in failed", err);
+      setSignInError(describeAuthError(err));
+    }
   }, []);
 
   const signOut = useCallback(async () => {
@@ -101,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ firebaseUser, appUser, loading, signIn, signOut, refreshAppUser }}
+      value={{ firebaseUser, appUser, loading, signIn, signOut, refreshAppUser, signInError }}
     >
       {children}
     </AuthContext.Provider>

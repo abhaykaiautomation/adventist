@@ -10,7 +10,7 @@ import { InstallAppButton } from "@/components/pwa/InstallAppButton";
  * and admin alike — so branding, primary nav, and auth state never diverge
  * per-shell the way they used to. */
 export function SiteHeader() {
-  const { appUser, loading, signIn, signOut } = useAuth();
+  const { appUser, loading, signIn, signOut, signInError } = useAuth();
   const pathname = usePathname();
   const firstName = appUser?.name?.split(" ")[0] || appUser?.email?.split("@")[0];
   const isApprovedAdmin =
@@ -24,61 +24,35 @@ export function SiteHeader() {
 
   return (
     <header className="relative z-20 shrink-0 border-b border-[#f3ede2]/10 bg-[#241a5e] px-6 py-3 text-[#f3ede2] sm:px-10">
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <Link href="/" className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/TAA-Logo-header.png"
-            alt="Troy Adventist Academy"
-            className="h-10 w-auto shrink-0 sm:h-14"
-          />
-          <div className="leading-tight">
-            <div
-              className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[#f6c667] sm:text-xs"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              &amp; Preschool
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+        <div className="flex flex-col gap-2">
+          <Link href="/" className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/TAA-Logo-header.png"
+              alt="Troy Adventist Academy"
+              className="h-10 w-auto shrink-0 sm:h-14"
+            />
+            <div className="leading-tight">
+              <div
+                className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[#f6c667] sm:text-xs"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                &amp; Preschool
+              </div>
+              <div className="mt-1 text-[0.65rem] leading-snug text-[#cdc4ec]">
+                ADD: 2777 Crooks Road, Troy, Michigan 48084
+                <br />
+                Phone: 248-712-4075
+              </div>
             </div>
-            <div className="mt-1 text-[0.65rem] leading-snug text-[#cdc4ec]">
-              ADD: 2777 Crooks Road, Troy, Michigan 48084
-              <br />
-              Phone: 248-712-4075
-            </div>
+          </Link>
+          <div className="text-xs font-medium uppercase tracking-wide">
+            <InstallAppButton />
           </div>
-        </Link>
+        </div>
 
         <div className="flex flex-col items-end gap-2 text-xs font-medium uppercase tracking-wide">
-          <nav className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2">
-            <Link href="/our-mission" className={navLinkClass(pathname === "/our-mission")}>
-              Our Mission
-            </Link>
-
-            <InstallAppButton />
-
-            {appUser ? (
-              <Link
-                href="/forms"
-                className={`flex items-center gap-1 ${
-                  pathname.startsWith("/forms") || pathname.startsWith("/policies")
-                    ? "text-[#f6c667] underline decoration-2 underline-offset-4"
-                    : "text-[#f6c667]"
-                }`}
-              >
-                Enrollment <span aria-hidden="true">&#8599;</span>
-              </Link>
-            ) : (
-              <button onClick={() => signIn()} className="flex items-center gap-1 text-[#f6c667]">
-                Enrollment <span aria-hidden="true">&#8599;</span>
-              </button>
-            )}
-
-            {isApprovedAdmin && (
-              <Link href="/admin" className={navLinkClass(pathname.startsWith("/admin"))}>
-                Admin Dashboard
-              </Link>
-            )}
-          </nav>
-
           {loading ? null : appUser ? (
             <div className="flex items-center gap-3 normal-case text-[#f3ede2]">
               <CartWidget />
@@ -104,6 +78,38 @@ export function SiteHeader() {
               )}
             </div>
           )}
+          {signInError && (
+            <p className="max-w-[16rem] text-right normal-case text-red-300">{signInError}</p>
+          )}
+
+          <nav className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2">
+            <Link href="/our-mission" className={navLinkClass(pathname === "/our-mission")}>
+              Our Mission
+            </Link>
+
+            {appUser ? (
+              <Link
+                href="/forms"
+                className={`flex items-center gap-1 ${
+                  pathname.startsWith("/forms") || pathname.startsWith("/policies")
+                    ? "text-[#f6c667] underline decoration-2 underline-offset-4"
+                    : "text-[#f6c667]"
+                }`}
+              >
+                Enrollment <span aria-hidden="true">&#8599;</span>
+              </Link>
+            ) : (
+              <button onClick={() => signIn()} className="flex items-center gap-1 text-[#f6c667]">
+                Enrollment <span aria-hidden="true">&#8599;</span>
+              </button>
+            )}
+
+            {isApprovedAdmin && (
+              <Link href="/admin" className={navLinkClass(pathname.startsWith("/admin"))}>
+                Admin Dashboard
+              </Link>
+            )}
+          </nav>
         </div>
       </div>
     </header>

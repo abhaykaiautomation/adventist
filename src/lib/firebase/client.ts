@@ -54,7 +54,19 @@ export async function signInWithGoogle() {
   if (isStandalone()) {
     return signInWithRedirect(auth, googleProvider);
   }
-  return signInWithPopup(auth, googleProvider);
+  try {
+    return await signInWithPopup(auth, googleProvider);
+  } catch (err) {
+    const code = (err as { code?: string } | null)?.code;
+    // These specifically mean the popup itself couldn't run (blocked by the
+    // browser, or unsupported in this environment, e.g. many mobile
+    // browsers/in-app webviews) — not that the user cancelled it. Fall back
+    // to a full-page redirect instead of failing silently.
+    if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") {
+      return signInWithRedirect(auth, googleProvider);
+    }
+    throw err;
+  }
 }
 
 /** Completes a signInWithRedirect flow after the browser navigates back —
