@@ -67,12 +67,12 @@ export function SiteHeader() {
               </button>
             </div>
           ) : (
-            <div className="relative">
+            <div>
               <button onClick={() => signIn()} className="text-[#f3ede2]">
                 Sign In
               </button>
               {!loading && (
-                <p className="absolute right-0 top-full mt-2 hidden whitespace-nowrap normal-case text-[#f6c667] sm:block">
+                <p className="mt-1 hidden max-w-[16rem] text-right normal-case text-[#f6c667] sm:block">
                   Please sign in to continue — everything past this page requires a Google account.
                 </p>
               )}
